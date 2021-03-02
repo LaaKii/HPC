@@ -8,6 +8,7 @@
 #include <math.h>
 #include <sys/time.h>
 #include <omp.h>
+#include <time.h>
 
 #define calcIndex(width, x, y)  ((y)*(width) + (x))
 
@@ -92,48 +93,64 @@ int countLifingsPeriodic(unsigned *currentfield, int x, int y, int w, int h) {
 }
 
 
-void evolve(unsigned *currentfield, unsigned *newfield, int w, int h, int num_threads, long timestep) {
+void evolve(unsigned *currentfield, unsigned *newfield, int nx, int ny, int Px, int Py, long timestep) {
 
-    int x, y;
-    FILE *fp = writeHeader(timestep, "gol", w, h);
+    int width = nx * Px;
+    int height = ny * Py;
 
-#pragma omp parallel for collapse(2) num_threads(num_threads)
-    for (y = 0; y < h; y++) {
-        for (x = 0; x < w; x++) {
-//            printf("thread %d\n", omp_get_thread_num());
-            int n = countLifingsPeriodic(currentfield, x, y, w, h);
-            if (currentfield[calcIndex(w, x, y)]) n--;
-            newfield[calcIndex(w, x, y)] = (n == 3 || (n == 2 && currentfield[calcIndex(w, x, y)]));
+//    FILE *fp = writeHeader(timestep, "gol", width, height);
+    int num_threads = nx * ny;
 
-            float value = currentfield[calcIndex(w, x, y)];
-            fwrite((unsigned char *) &value, sizeof(float), 1, fp);
+//    for (int i=0; i<num_threads; i++)
+    #pragma omp parallel num_threads(num_threads)
+    {
+        int i = omp_get_thread_num();
+
+        int x_start = (i % nx) * Px;
+        int x_end = x_start + Px;
+        int y_start = (i / nx) * Py;
+        int y_end = y_start + Py;
+
+//        printf("Thread %d: x(%%d)\n", i, x_start, y_start);
+for (int x = x_start; x < x_end; ++x) {
+            for (int y = y_start; y < y_end; ++y) {
+                int n = countLifingsPeriodic(currentfield, x, y, width, height);
+                if (currentfield[calcIndex(width, x, y)]) n--;
+                newfield[calcIndex(width, x, y)] = (n == 3 || (n == 2 && currentfield[calcIndex(width, x, y)]));
+//                float value = currentfield[calcIndex(width, x, y)];
+//                fwrite((unsigned char *) &value, sizeof(float), 1, fp);
+
+            }
         }
     }
-    writeFooter(fp);
+
+//    writeFooter(fp);
 }
 
 void filling(unsigned *currentfield, int w, int h) {
+    srand ( time(NULL) );
     for (int i = 0; i < h * w; i++) {
-        currentfield[i] = (rand() < RAND_MAX / 10) ? 1 : 0; ///< init domain randomly
+        currentfield[i] = rand() & 1;
+//        currentfield[i] = (rand() < RAND_MAX / 10) ? 1 : 0; ///< init domain randomly
     }
 }
 
-void game(int TimeSteps, int w, int h, int num_threads) {
-    unsigned *currentfield = calloc(w * h, sizeof(unsigned));
-    unsigned *newfield = calloc(w * h, sizeof(unsigned));
+void game(int TimeSteps, int nx, int ny, int Px, int Py) {
+    int width = nx * Px;
+    int height = ny * Py;
+    unsigned *currentfield = calloc(width * height, sizeof(unsigned));
+    unsigned *newfield = calloc(width * height, sizeof(unsigned));
 
-    //printf("size unsigned %d, size long %d\n",sizeof(float), sizeof(long));
+    filling(currentfield, width, height);
+    long time_step;
+    for (time_step = 0; time_step < TimeSteps; time_step++) {
+        show(currentfield, width, height);
+        evolve(currentfield, newfield, nx, ny, Px, Py, time_step);
 
-    filling(currentfield, w, h);
-    long timestep;
-    for (timestep = 0; timestep < TimeSteps; timestep++) {
-        show(currentfield, w, h);
-        evolve(currentfield, newfield, w, h, num_threads, timestep);
+        printf("%ld time_step\n", time_step);
+//        writeVTK2(time_step, currentfield, "gol", w, h);
 
-        printf("%ld timestep\n", timestep);
-//        writeVTK2(timestep, currentfield, "gol", w, h);
-
-//        FILE *fp = writeHeader(timestep, "gol", w, h);
+//        FILE *fp = writeHeader(time_step, "gol", w, h);
 //        writeData(currentfield, w, h, fp);
 //        writeFooter(fp);
 
@@ -154,20 +171,12 @@ int main(int c, char **v) {
     int width = 0, height = 0, TimeSteps = 0;
     int nx, ny;
     int Px, Py;
-    int num_threads;
 
     if (c > 1) TimeSteps = atoi(v[1]);
-    if (c > 2) nx = atoi(v[2]); ///< read width
-    if (c > 3) ny = atoi(v[3]); ///< read height
+    if (c > 2) nx = atoi(v[2]);
+    if (c > 3) ny = atoi(v[3]);
     if (c > 4) Px = atoi(v[4]);
     if (c > 5) Py = atoi(v[5]);
 
-    width = nx * Px;
-    height = ny * Py;
-    num_threads = Px * Py;
-
-//    if (width <= 0) width = 30; ///< default width
-//    if (height <= 0) height = 30; ///< default height
-
-    game(TimeSteps, width, height, num_threads);
+    game(TimeSteps, nx, ny, Px, Py);
 }

@@ -27,7 +27,8 @@ void writeMainVTK(int nx, int ny, int Px, int Py, long timestep) {
 
     fprintf(fp, "<?xml version=\"1.0\"?>\n");
     fprintf(fp, "<VTKFile type=\"PImageData\" version=\"0.1\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n");
-    fprintf(fp, "<PImageData WholeExtent=\"%d %d %d %d %d %d\" Origin=\"0 0 0\" Spacing=\"%le %le %le\">\n", 0, width-1, 0, height-1,
+    fprintf(fp, "<PImageData WholeExtent=\"%d %d %d %d %d %d\" Origin=\"0 0 0\" Spacing=\"%le %le %le\">\n", 0, width,
+            0, height,
             0, 0, deltax, deltax, 0.0);
     fprintf(fp, "<PCellData Scalars=\"%s\">\n", "gol");
     fprintf(fp, "<PDataArray type=\"Float32\" Name=\"%s\" format=\"appended\" offset=\"0\"/>\n", "gol");
@@ -51,18 +52,13 @@ void writeMainVTK(int nx, int ny, int Px, int Py, long timestep) {
     fclose(fp);
 }
 
-void writeVTK(long timestep, unsigned *data, char prefix[1024], int threadNum, int nx, int ny, int Px, int Py) {
+//void writeVTK(long timestep, double *currentfield, char prefix[1024], int threadNum, int nx, int ny, int Px, int Py) {
+void writeVTK(long timestep, double *currentfield, char prefix[1024], int threadNum, int width, int height, int x_start,
+              int x_end, int y_start, int y_end) {
     char filename[2048];
 
-    int width = nx * Px;
-    int height = ny * Py;
     float deltax = 1.0;
     long nxy = width * height * sizeof(float);
-
-    int x_start = (threadNum % nx) * Px;
-    int x_end = x_start + Px;
-    int y_start = (threadNum / nx) * Py;
-    int y_end = y_start + Py;
 
     snprintf(filename, sizeof(filename), "%s-%d-%05ld%s", prefix, threadNum, timestep, ".vti");
     FILE *fp = fopen(filename, "w");
@@ -81,8 +77,7 @@ void writeVTK(long timestep, unsigned *data, char prefix[1024], int threadNum, i
 
     for (int y = y_start; y < y_end; y++) {
         for (int x = x_start; x < x_end; x++) {
-            float value = data[calcIndex(width, x, y)];
-
+            float value = currentfield[calcIndex(width, x, y)];
             fwrite((unsigned char *) &value, sizeof(float), 1, fp);
         }
     }
@@ -93,7 +88,7 @@ void writeVTK(long timestep, unsigned *data, char prefix[1024], int threadNum, i
 }
 
 
-void show(unsigned *currentfield, int w, int h) {
+void show(double *currentfield, int w, int h) {
     printf("\033[H");
     int x, y;
     for (y = 0; y < h; y++) {
@@ -103,10 +98,10 @@ void show(unsigned *currentfield, int w, int h) {
     fflush(stdout);
 }
 
-int countLifingsPeriodic(unsigned *currentfield, int x, int y, int w, int h) {
+int countLifingsPeriodic(double *currentfield, int x, int y, int w, int h) {
     int n = 0;
     for (int y1 = y - 1; y1 <= y + 1; y1++) {
-        for (int x1 = x; x1 <= x + 1; x1++) {
+        for (int x1 = x - 1; x1 <= x + 1; x1++) {
             if (currentfield[calcIndex(w, (x1 + w) % w, (y1 + h) % h)]) {
                 n++;
             }
@@ -116,18 +111,19 @@ int countLifingsPeriodic(unsigned *currentfield, int x, int y, int w, int h) {
 }
 
 
-void evolve(unsigned *currentfield, unsigned *newfield, int nx, int ny, int Px, int Py, long timestep) {
+void evolve(double *currentfield, double *newfield, int nx, int ny, int Px, int Py, long timestep) {
 
     int width = nx * Px;
     int height = ny * Py;
 
-//    FILE *fp = writeHeader(timestep, "gol", width, height);
     int num_threads = nx * ny;
 
-    for (int i=0; i<num_threads; i++)
-//    #pragma omp parallel num_threads(num_threads)
+//    for (int i=0; i<num_threads; i++)
+//    #pragma omp parallel num_threads(num_threads) shared(currentfield, newfield) firstprivate (timestep, x_start, x_end, y_start,  y_end, x, y)
+#pragma omp parallel num_threads(num_threads) shared(currentfield, newfield) firstprivate(timestep, width, height, nx, ny, Px, Py)
+
     {
-//        int i = omp_get_thread_num();
+        int i = omp_get_thread_num();
 
         int x_start = (i % nx) * Px;
         int x_end = x_start + Px;
@@ -135,57 +131,60 @@ void evolve(unsigned *currentfield, unsigned *newfield, int nx, int ny, int Px, 
         int y_end = y_start + Py;
 
         if (i == 0) {
-            writeMainVTK(nx, ny, Px, Py, timestep);
+//            writeMainVTK(nx, ny, Px, Py, timestep);
+//            printf("Thread %d: x(%d-%d) y(%d-%d)\n", i, x_start, x_end, y_start, y_end);
+//            printf("timestep    %ld\n", timestep);
+//            printf("width       %d\n", width);
+//            printf("height      %d\n", height);
+//            printf("nx          %d\n", nx);
+//            printf("ny          %d\n", ny);
+//            printf("Px          %d\n", Px);
+//            printf("Py          %d\n", Py);
         }
 
-        printf("Thread %d: x(%d-%d) y(%d-%d)\n", i, x_start, x_end, y_start, y_end);
         for (int y = y_start; y < y_end; ++y) {
             for (int x = x_start; x < x_end; ++x) {
                 int n = countLifingsPeriodic(currentfield, x, y, width, height);
-                if (currentfield[calcIndex(width, x, y)]) n--;
-                newfield[calcIndex(width, x, y)] = (n == 3 || (n == 2 && currentfield[calcIndex(width, x, y)]));
-//                float value = currentfield[calcIndex(width, x, y)];
-//                fwrite((unsigned char *) &value, sizeof(float), 1, fp);
-
+                int index = calcIndex(width, x, y);
+                if (currentfield[index]) n--;
+                newfield[index] = (n == 3 || (n == 2 && currentfield[index]));
             }
         }
-        writeVTK(timestep, currentfield, "gol", i, nx, ny, Px, Py);
+//        writeVTK(timestep, currentfield, "gol", i, width, height, x_start, x_end, y_start, y_end);
     }
-
-//    writeFooter(fp);
 }
 
-void filling(unsigned *currentfield, int w, int h) {
-    srand ( time(NULL) );
+void filling(double *currentfield, int w, int h) {
+    srand(time(NULL));
     for (int i = 0; i < h * w; i++) {
-        currentfield[i] = rand() & 1;
-//        currentfield[i] = (rand() < RAND_MAX / 10) ? 1 : 0; ///< init domain randomly
+//        currentfield[i] = rand() & 1;
+        currentfield[i] = (rand() < RAND_MAX / 2) ? 1 : 0; ///< init domain randomly
     }
 }
 
 void game(int TimeSteps, int nx, int ny, int Px, int Py) {
     int width = nx * Px;
     int height = ny * Py;
-    unsigned *currentfield = calloc(width * height, sizeof(unsigned));
-    unsigned *newfield = calloc(width * height, sizeof(unsigned));
+    double *currentfield = calloc(width * height, sizeof(double));
+    double *newfield = calloc(width * height, sizeof(double));
 
     filling(currentfield, width, height);
     long time_step;
     for (time_step = 0; time_step < TimeSteps; time_step++) {
-        show(currentfield, width, height);
+//        show(currentfield, width, height);
         evolve(currentfield, newfield, nx, ny, Px, Py, time_step);
 
-        printf("%ld time_step\n", time_step);
+//        printf("%ld time_step\n", time_step);
 //        writeVTK2(time_step, currentfield, "gol", w, h);
 
 //        FILE *fp = writeHeader(time_step, "gol", w, h);
 //        writeData(currentfield, w, h, fp);
 //        writeFooter(fp);
 
-        usleep(2000000);
+//        usleep(2000000);
 
-        //SWAP
-        unsigned *temp = currentfield;
+//SWAP
+        double *temp = currentfield;
         currentfield = newfield;
         newfield = temp;
     }
@@ -196,15 +195,19 @@ void game(int TimeSteps, int nx, int ny, int Px, int Py) {
 }
 
 int main(int c, char **v) {
-    int width = 0, height = 0, TimeSteps = 0;
-    int nx, ny;
-    int Px, Py;
+    int TimeSteps = 0, nx = 0, ny = 0, Px = 0, Py = 0;
 
     if (c > 1) TimeSteps = atoi(v[1]);
     if (c > 2) nx = atoi(v[2]);
     if (c > 3) ny = atoi(v[3]);
     if (c > 4) Px = atoi(v[4]);
     if (c > 5) Py = atoi(v[5]);
+
+    if (TimeSteps <= 0) TimeSteps = 100;
+    if (nx <= 0) nx = 18;
+    if (ny <= 0) ny = 12;
+    if (Px <= 0) Px = 1;
+    if (Py <= 0) Py = 1;
 
     game(TimeSteps, nx, ny, Px, Py);
 }

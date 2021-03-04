@@ -10,7 +10,7 @@
 
 #define calcIndex(width, x, y)  ((y)*(width) + (x))
 
-long TimeSteps = 100;
+long TimeSteps = 1;
 
 void writeHeaderVTK(long timestep, int w, int h) {
     char filename[2048];
@@ -41,7 +41,7 @@ void writeHeaderVTK(long timestep, int w, int h) {
         } else if (i == 3) {
             xstart = 15, ystart = 15;
         }
-        int threadh = h / 2, threadw = w / 2
+        int threadh = h / 2, threadw = w / 2;
 
 
         fprintf(fp, "<Piece Extent=\"%d %d %d %d %d %d\" Source=\"%s-%d-%05ld%s\"/>", xstart, xstart + threadw, ystart,
@@ -128,6 +128,7 @@ void evolve(long timestep, double *currentfield, double *newfield, int w, int h)
         } else if (i == 3) {
             xstart = 15, xend = 30, ystart = 15, yend = 30;
         }
+        printf("Thread %d: x(%d-%d) y(%d-%d)\n", i, xstart, xend-1, ystart, yend-1);
 
         for (int y = ystart; y < yend; y++) {
             for (int x = xstart; x < xend; x++) {
@@ -154,7 +155,7 @@ void game(int w, int h) {
     double *currentfield = calloc(w * h, sizeof(double));
     double *newfield = calloc(w * h, sizeof(double));
 
-    //printf("size unsigned %d, size long %d\n",sizeof(float), sizeof(long));
+    printf("size unsigned %d, size long %d\n",sizeof(float), sizeof(long));
 
     filling(currentfield, w, h);
     long t;

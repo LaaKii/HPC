@@ -4,16 +4,14 @@ timestep=2
 constantCoreFactor=1
 
 for fieldsize in "${allFieldsizes[@]}"; do
-  printf "Fieldsize gets increased to %d\n" "$fieldsize" >> timing.txt
-  #echo "Fieldsize gets increased to $fieldsize"
+  printf "Fieldsize gets increased to %d x %d\n" "$fieldsize" "$fieldsize">> timing.txt
   for core in "${allCores[@]}"; do
     printf "Running field of %d x %d with %d core(s) \n" "$fieldsize" "$fieldsize" "$core" >> timing.txt
-    #echo "Running field of $fieldsize x $fieldsize with $core core(s)"
-    { time ./gameoflife $timestep $constantCoreFactor $core $fieldsize $fieldsize ; } >> timing.txt 2>&1
-   # for run in 1 2 3 4 5; do
-      #printf "Run: $run\n" >> timing.txt
-    #  echo "Run: $run"
-     # { time ./gameoflife $timestep $constantCoreFactor $core $fieldsize $fieldsize ; } >> test.txt 2>&1
-    #done
+    for (( c=1; c<=5; c++ ))
+    do
+      echo "run $c" >> timing.txt
+      { time ./gameoflife $timestep $constantCoreFactor $core $fieldsize $fieldsize ; } >> timing.txt 2>&1
+    done
+    echo "-------------------------" >> timing.txt
   done
 done

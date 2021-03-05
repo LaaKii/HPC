@@ -14,13 +14,10 @@
 
 //long TimeSteps = 100;
 
-void writeMainVTK(int nx, int ny, int Px, int Py, long timestep) {
+void writeMainVTK(long timestep, int width, int height, int nx, int ny, int Px, int Py) {
     char filename[2048];
 
     float deltax = 1.0;
-
-    int width = nx * Px;
-    int height = ny * Py;
 
     snprintf(filename, sizeof(filename), "%s-%05ld%s", "header", timestep, ".pvti");
     FILE *fp = fopen(filename, "w");
@@ -52,7 +49,6 @@ void writeMainVTK(int nx, int ny, int Px, int Py, long timestep) {
     fclose(fp);
 }
 
-//void writeVTK(long timestep, double *currentfield, char prefix[1024], int threadNum, int nx, int ny, int Px, int Py) {
 void writeVTK(long timestep, double *currentfield, char prefix[1024], int threadNum, int width, int height, int x_start,
               int x_end, int y_start, int y_end) {
     char filename[2048];
@@ -111,17 +107,10 @@ int countLifingsPeriodic(double *currentfield, int x, int y, int w, int h) {
 }
 
 
-void evolve(double *currentfield, double *newfield, int nx, int ny, int Px, int Py, long timestep) {
-
-    int width = nx * Px;
-    int height = ny * Py;
-
-    int num_threads = nx * ny;
+void evolve(long timestep, double *currentfield, double *newfield, int num_threads, int width, int height, int nx, int ny, int Px, int Py) {
 
 //    for (int i=0; i<num_threads; i++)
-//    #pragma omp parallel num_threads(num_threads) shared(currentfield, newfield) firstprivate (timestep, x_start, x_end, y_start,  y_end, x, y)
 #pragma omp parallel num_threads(num_threads) shared(currentfield, newfield) firstprivate(timestep, width, height, nx, ny, Px, Py)
-
     {
         int i = omp_get_thread_num();
 
@@ -130,17 +119,9 @@ void evolve(double *currentfield, double *newfield, int nx, int ny, int Px, int 
         int y_start = (i / nx) * Py;
         int y_end = y_start + Py;
 
-        if (i == 0) {
-//            writeMainVTK(nx, ny, Px, Py, timestep);
-//            printf("Thread %d: x(%d-%d) y(%d-%d)\n", i, x_start, x_end, y_start, y_end);
-//            printf("timestep    %ld\n", timestep);
-//            printf("width       %d\n", width);
-//            printf("height      %d\n", height);
-//            printf("nx          %d\n", nx);
-//            printf("ny          %d\n", ny);
-//            printf("Px          %d\n", Px);
-//            printf("Py          %d\n", Py);
-        }
+//        if (i == 0) {
+//            writeMainVTK(timestep, width, height, nx, ny, Px, Py);
+//        }
 
         for (int y = y_start; y < y_end; ++y) {
             for (int x = x_start; x < x_end; ++x) {
@@ -168,20 +149,17 @@ void game(int TimeSteps, int nx, int ny, int Px, int Py) {
     double *currentfield = calloc(width * height, sizeof(double));
     double *newfield = calloc(width * height, sizeof(double));
 
+    int num_threads = nx * ny;
+
     filling(currentfield, width, height);
     long time_step;
     for (time_step = 0; time_step < TimeSteps; time_step++) {
 //        show(currentfield, width, height);
-        evolve(currentfield, newfield, nx, ny, Px, Py, time_step);
+        evolve(time_step, currentfield, newfield, num_threads, width, height, nx, ny, Px, Py);
 
 //        printf("%ld time_step\n", time_step);
-//        writeVTK2(time_step, currentfield, "gol", w, h);
 
-//        FILE *fp = writeHeader(time_step, "gol", w, h);
-//        writeData(currentfield, w, h, fp);
-//        writeFooter(fp);
-
-//        usleep(2000000);
+        usleep(2000000);
 
 //SWAP
         double *temp = currentfield;
@@ -204,10 +182,10 @@ int main(int c, char **v) {
     if (c > 5) Py = atoi(v[5]);
 
     if (TimeSteps <= 0) TimeSteps = 100;
-    if (nx <= 0) nx = 18;
-    if (ny <= 0) ny = 12;
-    if (Px <= 0) Px = 1;
-    if (Py <= 0) Py = 1;
+    if (nx <= 0) nx = 5;
+    if (ny <= 0) ny = 5;
+    if (Px <= 0) Px = 5;
+    if (Py <= 0) Py = 5;
 
     game(TimeSteps, nx, ny, Px, Py);
 }

@@ -31,13 +31,13 @@ void writeMainVTK(long timestep, int width, int height, int nx, int ny, int Px, 
     fprintf(fp, "<PDataArray type=\"Float32\" Name=\"%s\" format=\"appended\" offset=\"0\"/>\n", "gol");
     fprintf(fp, "</PCellData>\n");
 
-    int num_threads = nx * ny;
+    int num_threads = Px * Py;
     for (int i = 0; i < num_threads; i++) {
 
-        int x_start = (i % nx) * Px;
-        int x_end = x_start + Px;
-        int y_start = (i / nx) * Py;
-        int y_end = y_start + Py;
+        int x_start = (i % Px) * nx;
+        int x_end = x_start + nx;
+        int y_start = (i / Px) * ny;
+        int y_end = y_start + ny;
 
 
         fprintf(fp, "<Piece Extent=\"%d %d %d %d %d %d\" Source=\"%s-%d-%05ld%s\"/>", x_start, x_end, y_start,
@@ -110,14 +110,15 @@ int countLifingsPeriodic(double *currentfield, int x, int y, int w, int h) {
 void evolve(long timestep, double *currentfield, double *newfield, int num_threads, int width, int height, int nx, int ny, int Px, int Py) {
 
 //    for (int i=0; i<num_threads; i++)
-#pragma omp parallel num_threads(num_threads) shared(currentfield, newfield) firstprivate(timestep, width, height, nx, ny, Px, Py)
+//#pragma omp parallel num_threads(num_threads) shared(currentfield, newfield) firstprivate(timestep, width, height, nx, ny, Px, Py)
+#pragma omp parallel num_threads(num_threads)
     {
         int i = omp_get_thread_num();
 
-        int x_start = (i % nx) * Px;
-        int x_end = x_start + Px;
-        int y_start = (i / nx) * Py;
-        int y_end = y_start + Py;
+        int x_start = (i % Px) * nx;
+        int x_end = x_start + nx;
+        int y_start = (i / Px) * ny;
+        int y_end = y_start + ny;
 
 //        if (i == 0) {
 //            writeMainVTK(timestep, width, height, nx, ny, Px, Py);
@@ -149,7 +150,7 @@ void game(int TimeSteps, int nx, int ny, int Px, int Py) {
     double *currentfield = calloc(width * height, sizeof(double));
     double *newfield = calloc(width * height, sizeof(double));
 
-    int num_threads = nx * ny;
+    int num_threads = Px * Py;
 
     filling(currentfield, width, height);
     long time_step;
@@ -159,7 +160,7 @@ void game(int TimeSteps, int nx, int ny, int Px, int Py) {
 
 //        printf("%ld time_step\n", time_step);
 
-//        usleep(2000000);
+//        usleep(200000);
 
 //SWAP
         double *temp = currentfield;

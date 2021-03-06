@@ -22,6 +22,9 @@ int y
 int x
 int n
 int index
+
+int y1
+int x1
 ```
 
 Variable sizes (bytes):
@@ -42,10 +45,10 @@ usage = (4 * int_size) + (1 * long_size) + (2 * width * height * double_size)
 
 ```
 main_file = 334 * 1 + 58 * #fields
-     = 334 * 1 + 58 * (nx * ny)
+          = 334 * 1 + 58 * (nx * ny)
 
-sub_files = 397 * #files + float * #pixel
-    = 397 * (nx * ny) + 4 * (nx * ny * Px * Py)
+sub_files = 397 * #files + float_size * #pixel
+          = 397 * (nx * ny) + 4 * (nx * ny * Px * Py)
 
 sum_disk_usage = 334 * 1 + 58 * (nx * ny) + 397 * (nx * ny) + 4 * (nx * ny * Px * Py)
 ```

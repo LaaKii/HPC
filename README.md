@@ -1,5 +1,5 @@
-## memory usage
-Used variables:
+## RAM Nutzung
+Genutzte Variablen:
 ```
 int width
 int height
@@ -27,7 +27,7 @@ int y1
 int x1
 ```
 
-Variable sizes (bytes):
+Variablen Größen (bytes):
 ```
 int_size = 4
 double_size = 8
@@ -35,13 +35,13 @@ float_size = 4
 long_size = 8
 ```
 
-max memory usage:
+Max RAM Nutzung:
 ```
 usage = (4 * int_size) + (1 * long_size) + (2 * width * height * double_size) 
 + num_threads * (int_size * 9)
 ```
 
-## VTI disk usage for one time step
+## VTI Festplatten-Speicher Nutzung für einen Zeitschritt
 
 ```
             Header/Footer, Verweise
@@ -56,7 +56,7 @@ sum_disk_usage = 334 * 1 + 58 * (Px * Py) + 397 * (Px * Py) + 4 * (nx * ny * Px 
 ```
 -> Durch Header und Verweise wird deutlich mehr Speicherplatz zum persistieren benötigt als RAM bei der Ausführung
 
-# Laufzeitanalyse
+## Laufzeitanalyse
 Die Laufzeit ist proportional zum genutzten Speicher.
 
 ![memory & time comparison](./performance_analysis.svg)

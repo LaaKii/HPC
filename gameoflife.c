@@ -160,7 +160,7 @@ void game(int TimeSteps, int nx, int ny, int Px, int Py) {
 
 //        printf("%ld time_step\n", time_step);
 
-//        usleep(200000);
+        usleep(200000);
 
 //SWAP
         double *temp = currentfield;

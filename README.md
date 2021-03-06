@@ -44,11 +44,19 @@ usage = (4 * int_size) + (1 * long_size) + (2 * width * height * double_size)
 ## VTI disk usage for one time step
 
 ```
+            Header/Footer, Verweise
 main_file = 334 * 1 + 58 * #fields
-          = 334 * 1 + 58 * (nx * ny)
+          = 334 * 1 + 58 * (Px * Py)
 
+            Header/Footer, Data
 sub_files = 397 * #files + float_size * #pixel
-          = 397 * (nx * ny) + 4 * (nx * ny * Px * Py)
+          = 397 * (Px * Py) + 4 * (Px * Py * nx * ny)
 
-sum_disk_usage = 334 * 1 + 58 * (nx * ny) + 397 * (nx * ny) + 4 * (nx * ny * Px * Py)
+sum_disk_usage = 334 * 1 + 58 * (Px * Py) + 397 * (Px * Py) + 4 * (nx * ny * Px * Py)
 ```
+-> Durch Header und Verweise wird deutlich mehr Speicherplatz zum persistieren benötigt als RAM bei der Ausführung
+
+# Laufzeitanalyse
+Die Laufzeit ist proportional zum genutzten Speicher.
+
+![memory & time comparison](./performance_analysis.svg)

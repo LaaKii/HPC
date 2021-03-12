@@ -59,4 +59,4 @@ sum_disk_usage = 334 * 1 + 58 * (Px * Py) + 397 * (Px * Py) + 4 * (nx * ny * Px 
 ## Laufzeitanalyse
 Die Laufzeit ist proportional zum genutzten Speicher.
 
-![memory & time comparison](./performance_analysis.svg)
+![memory & time comparison](CLionProjects/HPC/openMP/performance_analysis.svgerformance_analysis.svg)

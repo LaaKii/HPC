@@ -142,7 +142,8 @@ void filling(double *currentfield, int w, int h) {
     }
 }
 
-void game(int TimeSteps, int nx, int ny, int Px, int Py) {
+void game(MPI_Comm* comm, int TimeSteps, int nx, int ny, int Px, int Py) {
+
     int width = nx * Px;
     int height = ny * Py;
     double *currentfield = calloc(width * height, sizeof(double));
@@ -172,35 +173,6 @@ void game(int TimeSteps, int nx, int ny, int Px, int Py) {
 }
 
 int main(int c, char **v) {
-    int rank, commSize;
-    MPI_Init(&c, &v);
-    MPI_Comm_size(MPI_COMM_WORLD, &commSize);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    printf("Initialized, Size: %d, Rank: %d\n", commSize, rank);
-
-    MPI_Comm comm;
-    int ndims = 1;  // dimensions, nach aufgabe 1d periodisch
-    int dimensions[] = {commSize};  // processes per dimension
-    int periodic[] = {1};
-    MPI_Cart_create(MPI_COMM_WORLD, ndims, dimensions, periodic, 0, &comm);
-
-    int coordinates[1];
-    MPI_Cart_coords(comm, rank, 1, &coordinates);
-
-    int right, left;
-    MPI_Cart_shift(
-            comm,
-            0, // left-right, front-back, top-bottom, ...
-            1, // abstand, shift-size
-            &left,
-            &right
-            );
-    printf("[%d] Coordinates: %d\tNeighbor-Left: %d\tNeighbor-Right: %d\n", rank, *coordinates, left, right);
-
-
-    MPI_Finalize();
-    return 0;
-
     int TimeSteps = 0, nx = 0, ny = 0, Px = 0, Py = 0;
 
     if (c > 1) TimeSteps = atoi(v[1]);
@@ -215,6 +187,52 @@ int main(int c, char **v) {
     if (Px <= 0) Px = 5;
     if (Py <= 0) Py = 5;
 
-    game(TimeSteps, nx, ny, Px, Py);
+    int rank, commSize;
 
+    MPI_Init(&c, &v);
+    MPI_Comm_size(MPI_COMM_WORLD, &commSize);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    printf("Initialized, Size: %d, Rank: %d\n", commSize, rank);
+
+//    3g)
+//    if(commSize != px*py){
+//        printf("Thread num does not match px*py\n");
+//        return -1;
+//    }
+
+    MPI_Comm comm;
+//    int ndims = 2;  // dimensions
+    int ndims = 1;  // dimensions
+//    int dimensions[] = {px, py};  // processes per dimension
+    int dimensions[] = {commSize};  // processes per dimension
+//    int periodic[] = {1, 1};
+    int periodic[] = {1};
+    MPI_Cart_create(MPI_COMM_WORLD, ndims, dimensions, periodic, 0, &comm);
+
+//    int coordinates[2];
+    int coordinates[1];
+    MPI_Cart_coords(comm, rank, 1, &coordinates);
+
+    int right, left, top, bottom;
+    MPI_Cart_shift(
+            comm,
+            0, // left-right, front-back, top-bottom, ...
+            1, // abstand, shift-size
+            &left,
+            &right
+    );
+//    MPI_Cart_shift(
+//            comm,
+//            1, // left-right, front-back, top-bottom, ...
+//            1, // abstand, shift-size
+//            &top,
+//            &bottom
+//    );
+
+    printf("[%d] Coordinates: %d\tNeighbor-Left: %d\tNeighbor-Right: %d\n", rank, *coordinates, left, right);
+
+    game(&comm, TimeSteps, nx, ny, Px, Py);
+
+    MPI_Finalize();
+    return 0;
 }

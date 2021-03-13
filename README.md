@@ -1,4 +1,6 @@
-## RAM Nutzung
+# HPC mit OpenMP und MPI am Beispiel von Game of Life
+## OpenMP
+### RAM Nutzung
 Genutzte Variablen:
 ```
 int width
@@ -41,7 +43,7 @@ usage = (4 * int_size) + (1 * long_size) + (2 * width * height * double_size)
 + num_threads * (int_size * 9)
 ```
 
-## VTI Festplatten-Speicher Nutzung für einen Zeitschritt
+### VTI Festplatten-Speicher Nutzung für einen Zeitschritt
 
 ```
             Header/Footer, Verweise
@@ -54,9 +56,9 @@ sub_files = 397 * #files + float_size * #pixel
 
 sum_disk_usage = 334 * 1 + 58 * (Px * Py) + 397 * (Px * Py) + 4 * (nx * ny * Px * Py)
 ```
--> Durch Header und Verweise wird deutlich mehr Speicherplatz zum persistieren benötigt als RAM bei der Ausführung
+-> Durch Header und Verweise wird deutlich mehr Speicherplatz zum persistieren benötigt als RAM bei der Ausführung.
 
-## Laufzeitanalyse
+### Laufzeitanalyse
 Die Laufzeit ist proportional zum genutzten Speicher.
 
-![memory & time comparison](CLionProjects/HPC/openMP/performance_analysis.svgerformance_analysis.svg)
+![memory & time comparison](openMP/performance_analysis.svg)

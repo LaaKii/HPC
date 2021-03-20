@@ -107,31 +107,29 @@ int countLifingsPeriodic(double *currentfield, int x, int y, int w, int h) {
 }
 
 
-void evolve(long timestep, double *currentfield, double *newfield, int num_threads, int width, int height, int nx, int ny, int Px, int Py) {
+void evolve(double *currentfield, double *newfield, int width, int height, int num_threads, int rank) {
 
-    for (int i=0; i<num_threads; i++)
-    {
-//        int i = omp_get_thread_num();
+    MPI_Request request;
+    MPI_Isend(currentfield + width, width, MPI_DOUBLE, ((rank - 1) + num_threads) % num_threads, 42, MPI_COMM_WORLD, &request);
+    MPI_Isend(currentfield + height * width, width, MPI_DOUBLE, ((rank + 1) + num_threads) % num_threads, 42, MPI_COMM_WORLD, &request);
 
-        int x_start = (i % Px) * nx;
-        int x_end = x_start + nx;
-        int y_start = (i / Px) * ny;
-        int y_end = y_start + ny;
+    MPI_Status status;
+    MPI_Recv(currentfield, width, MPI_DOUBLE, ((rank + 1) + num_threads) % num_threads, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+    MPI_Recv(currentfield + (height + 1) * width, width, MPI_DOUBLE, ((rank - 1) + num_threads) % num_threads, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
 //        if (i == 0) {
 //            writeMainVTK(timestep, width, height, nx, ny, Px, Py);
 //        }
 
-        for (int y = y_start; y < y_end; ++y) {
-            for (int x = x_start; x < x_end; ++x) {
-                int n = countLifingsPeriodic(currentfield, x, y, width, height);
-                int index = calcIndex(width, x, y);
-                if (currentfield[index]) n--;
-                newfield[index] = (n == 3 || (n == 2 && currentfield[index]));
-            }
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            int n = countLifingsPeriodic(currentfield, x, y, width, height);
+            int index = calcIndex(width, x, y);
+            if (currentfield[index]) n--;
+            newfield[index] = (n == 3 || (n == 2 && currentfield[index]));
         }
-//        writeVTK(timestep, currentfield, "gol", i, width, height, x_start, x_end, y_start, y_end);
     }
+//        writeVTK(timestep, currentfield, "gol", i, width, height, x_start, x_end, y_start, y_end);
 }
 
 void filling(double *currentfield, int w, int h) {
@@ -139,27 +137,29 @@ void filling(double *currentfield, int w, int h) {
     for (int i = 0; i < h * w; i++) {
 //        currentfield[i] = rand() & 1;
         currentfield[i] = (rand() < RAND_MAX / 2) ? 1 : 0; ///< init domain randomly
+//        currentfield[i] = 1;
     }
 }
 
-void game(MPI_Comm* comm, int TimeSteps, int nx, int ny, int Px, int Py) {
+void game(int TimeSteps, int height, int width, int num_threads, int rank) {
 
-    int width = nx * Px;
-    int height = ny * Py;
-    double *currentfield = calloc(width * height, sizeof(double));
-    double *newfield = calloc(width * height, sizeof(double));
+    printf("width: %d\nheight: %d", width, height);
 
-    int num_threads = Px * Py;
+    double *currentfield = calloc(width * (height + 2), sizeof(double));
+    double *newfield = calloc(width * (height + 2), sizeof(double));
+
 
     filling(currentfield, width, height);
     long time_step;
     for (time_step = 0; time_step < TimeSteps; time_step++) {
-//        show(currentfield, width, height);
-        evolve(time_step, currentfield, newfield, num_threads, width, height, nx, ny, Px, Py);
+        if (rank==0){
+            writeMainVTK(time_step, width, height*num_threads, width, height, 1, num_threads);
+        }
+        writeVTK(time_step, currentfield, "gol", rank, width, height, 0, width, rank*height, rank*height+height);
+        evolve(currentfield, newfield, width, height, num_threads, rank);
 
-//        printf("%ld time_step\n", time_step);
 
-//        usleep(200000);
+        usleep(200000);
 
 //SWAP
         double *temp = currentfield;
@@ -173,65 +173,28 @@ void game(MPI_Comm* comm, int TimeSteps, int nx, int ny, int Px, int Py) {
 }
 
 int main(int c, char **v) {
-    int TimeSteps = 0, nx = 0, ny = 0, Px = 0, Py = 0;
+    int TimeSteps = 0, height = 5, width = 5;
 
     if (c > 1) TimeSteps = atoi(v[1]);
-    if (c > 2) nx = atoi(v[2]);
-    if (c > 3) ny = atoi(v[3]);
-    if (c > 4) Px = atoi(v[4]);
-    if (c > 5) Py = atoi(v[5]);
+//    if (c > 2) nx = atoi(v[2]);
+//    if (c > 3) ny = atoi(v[3]);
+//    if (c > 4) Px = atoi(v[4]);
+//    if (c > 5) Py = atoi(v[5]);
 
-    if (TimeSteps <= 0) TimeSteps = 100;
-    if (nx <= 0) nx = 5;
-    if (ny <= 0) ny = 5;
-    if (Px <= 0) Px = 5;
-    if (Py <= 0) Py = 5;
+    if (TimeSteps <= 0) TimeSteps = 20;
+//    if (nx <= 0) nx = 5;
+//    if (ny <= 0) ny = 5;
+//    if (Px <= 0) Px = 5;
+//    if (Py <= 0) Py = 5;
 
-    int rank, commSize;
+    int rank, num_threads;
 
     MPI_Init(&c, &v);
-    MPI_Comm_size(MPI_COMM_WORLD, &commSize);
+    MPI_Comm_size(MPI_COMM_WORLD, &num_threads);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    printf("Initialized, Size: %d, Rank: %d\n", commSize, rank);
+    printf("Initialized, Size: %d, Rank: %d\n", num_threads, rank);
 
-//    3g)
-//    if(commSize != px*py){
-//        printf("Thread num does not match px*py\n");
-//        return -1;
-//    }
-
-    MPI_Comm comm;
-//    int ndims = 2;  // dimensions
-    int ndims = 1;  // dimensions
-//    int dimensions[] = {px, py};  // processes per dimension
-    int dimensions[] = {commSize};  // processes per dimension
-//    int periodic[] = {1, 1};
-    int periodic[] = {1};
-    MPI_Cart_create(MPI_COMM_WORLD, ndims, dimensions, periodic, 0, &comm);
-
-//    int coordinates[2];
-    int coordinates[1];
-    MPI_Cart_coords(comm, rank, 1, &coordinates);
-
-    int right, left, top, bottom;
-    MPI_Cart_shift(
-            comm,
-            0, // left-right, front-back, top-bottom, ...
-            1, // abstand, shift-size
-            &left,
-            &right
-    );
-//    MPI_Cart_shift(
-//            comm,
-//            1, // left-right, front-back, top-bottom, ...
-//            1, // abstand, shift-size
-//            &top,
-//            &bottom
-//    );
-
-    printf("[%d] Coordinates: %d\tNeighbor-Left: %d\tNeighbor-Right: %d\n", rank, *coordinates, left, right);
-
-    game(&comm, TimeSteps, nx, ny, Px, Py);
+    game(TimeSteps, height, width, num_threads, rank);
 
     MPI_Finalize();
     return 0;
